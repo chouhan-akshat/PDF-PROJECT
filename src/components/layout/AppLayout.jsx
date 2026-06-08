@@ -1,0 +1,14 @@
+import Header from './Header'
+import Footer from './Footer'
+
+export default function AppLayout({ children }) {
+  return (
+    <div className="flex min-h-dvh flex-col">
+      <Header />
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6 sm:py-12">
+        {children}
+      </main>
+      <Footer />
+    </div>
+  )
+}
