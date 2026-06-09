@@ -5,6 +5,7 @@ const HomePage = lazy(() => import('./pages/HomePage'))
 const MergeTestPage = lazy(() => import('./pages/MergeTestPage'))
 const ImageToPdfTestPage = lazy(() => import('./pages/ImageToPdfTestPage'))
 const NotesCleanerTestPage = lazy(() => import('./pages/NotesCleanerTestPage'))
+const CompressTestPage = lazy(() => import('./pages/CompressTestPage'))
 
 function PageFallback() {
   return (
@@ -26,11 +27,14 @@ export default function App() {
           <ImageToPdfTestPage onBack={() => setPage('home')} />
         ) : page === 'notes-cleaner-test' ? (
           <NotesCleanerTestPage onBack={() => setPage('home')} />
+        ) : page === 'compress-test' ? (
+          <CompressTestPage onBack={() => setPage('home')} />
         ) : (
           <HomePage
             onOpenMergeTest={() => setPage('merge-test')}
             onOpenImageToPdfTest={() => setPage('image-to-pdf-test')}
             onOpenNotesCleanerTest={() => setPage('notes-cleaner-test')}
+            onOpenCompressTest={() => setPage('compress-test')}
           />
         )}
       </Suspense>

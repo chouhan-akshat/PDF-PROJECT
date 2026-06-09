@@ -5,6 +5,10 @@ export const PdfWorkerMessage = {
   MERGE_SUCCESS: 'merge:success',
   MERGE_ERROR: 'merge:error',
 
+  COMPRESS: 'compress',
+  COMPRESS_SUCCESS: 'compress:success',
+  COMPRESS_ERROR: 'compress:error',
+
   IMAGE_TO_PDF_START: 'imageToPdf:start',
   IMAGE_TO_PDF_APPEND: 'imageToPdf:append',
   IMAGE_TO_PDF_FINISH: 'imageToPdf:finish',
@@ -41,6 +45,9 @@ const NOTES_CLEANER_TYPES = new Set([
 export function pdfWorkerErrorType(requestType) {
   if (requestType === PdfWorkerMessage.MERGE) {
     return PdfWorkerMessage.MERGE_ERROR
+  }
+  if (requestType === PdfWorkerMessage.COMPRESS) {
+    return PdfWorkerMessage.COMPRESS_ERROR
   }
   if (IMAGE_TO_PDF_TYPES.has(requestType)) {
     return PdfWorkerMessage.IMAGE_TO_PDF_ERROR

@@ -2,6 +2,7 @@ import {
   PdfWorkerMessage,
   pdfWorkerErrorType,
 } from '../constants/pdfWorkerTypes.js'
+import { compressPdf } from './handlers/compressPdf.js'
 import { imageToPdfSession } from './handlers/imageToPdf.js'
 import { mergePdfs } from './handlers/mergePdfs.js'
 import { notesCleanerSession } from './handlers/notesCleaner.js'
@@ -13,6 +14,7 @@ const handlers = {
     const bytes = await mergePdfs(payload.files)
     return { bytes, transfer: [bytes.buffer] }
   },
+  [PdfWorkerMessage.COMPRESS]: async (payload) => compressPdf(payload),
 }
 
 /** Streaming session handlers: (payload, jobId) => result | void */
@@ -47,6 +49,34 @@ const SESSION_CANCEL = {
   [PdfWorkerMessage.NOTES_CLEANER_FINISH]: notesCleanerSession.cancel,
 }
 
+const notesCleanerQueues = new Map()
+
+function isNotesCleanerMessage(type) {
+  return (
+    type === PdfWorkerMessage.NOTES_CLEANER_START ||
+    type === PdfWorkerMessage.NOTES_CLEANER_APPEND ||
+    type === PdfWorkerMessage.NOTES_CLEANER_FINISH
+  )
+}
+
+function clearNotesCleanerQueue(jobId) {
+  notesCleanerQueues.delete(jobId)
+}
+
+function enqueueNotesCleanerTask(jobId, task) {
+  const previous = notesCleanerQueues.get(jobId) ?? Promise.resolve()
+  const queued = previous.catch(() => {}).then(task)
+  const tracked = queued.finally(() => {
+    if (notesCleanerQueues.get(jobId) === tracked) {
+      clearNotesCleanerQueue(jobId)
+    }
+  })
+
+  notesCleanerQueues.set(jobId, tracked)
+
+  return queued
+}
+
 function postBinarySuccess(id, successType, bytes) {
   self.postMessage(
     {
@@ -71,7 +101,9 @@ self.addEventListener('message', async (event) => {
 
   if (sessionHandlers[type]) {
     try {
-      const result = await sessionHandlers[type](payload, id)
+      const result = isNotesCleanerMessage(type)
+        ? await enqueueNotesCleanerTask(id, () => sessionHandlers[type](payload, id))
+        : await sessionHandlers[type](payload, id)
       const successType = SESSION_FINISH_SUCCESS[type]
 
       if (successType && result?.bytes) {
@@ -79,6 +111,9 @@ self.addEventListener('message', async (event) => {
       }
     } catch (err) {
       SESSION_CANCEL[type]?.(id)
+      if (isNotesCleanerMessage(type)) {
+        clearNotesCleanerQueue(id)
+      }
       const message = err instanceof Error ? err.message : String(err)
       postError(id, type, message)
     }
@@ -97,6 +132,18 @@ self.addEventListener('message', async (event) => {
 
     if (type === PdfWorkerMessage.MERGE && result?.bytes) {
       postBinarySuccess(id, PdfWorkerMessage.MERGE_SUCCESS, result.bytes)
+      return
+    }
+
+    if (type === PdfWorkerMessage.COMPRESS && result?.bytes) {
+      self.postMessage(
+        {
+          id,
+          type: PdfWorkerMessage.COMPRESS_SUCCESS,
+          payload: result,
+        },
+        [result.bytes.buffer],
+      )
       return
     }
 

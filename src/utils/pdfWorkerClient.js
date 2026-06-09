@@ -120,6 +120,34 @@ export async function mergePdfFiles(files) {
 }
 
 /**
+ * Read one PDF on the main thread, compress in the worker, return bytes + diagnostics.
+ * @param {File} file
+ * @param {{ level?: 'low' | 'medium' | 'high' }} [options]
+ * @returns {Promise<{ bytes: Uint8Array, diagnostics: object }>}
+ */
+export async function compressPdfFile(file, options = {}) {
+  if (!file) {
+    throw new Error('Select a PDF file.')
+  }
+
+  if (file.type && file.type !== 'application/pdf') {
+    throw new Error(`"${file.name}" is not a PDF.`)
+  }
+
+  const buffer = await file.arrayBuffer()
+
+  return postToWorker(
+    PdfWorkerMessage.COMPRESS,
+    {
+      name: file.name,
+      buffer,
+      level: options.level ?? 'medium',
+    },
+    [buffer],
+  )
+}
+
+/**
  * Stream images to the worker one at a time (sequential read + transfer).
  * @param {File[]} files
  * @returns {Promise<Uint8Array>}
