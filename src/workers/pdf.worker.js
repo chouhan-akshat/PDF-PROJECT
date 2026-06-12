@@ -6,6 +6,7 @@ import { compressPdf } from './handlers/compressPdf.js'
 import { imageToPdfSession } from './handlers/imageToPdf.js'
 import { mergePdfs } from './handlers/mergePdfs.js'
 import { notesCleanerSession } from './handlers/notesCleaner.js'
+import { splitPdf } from './handlers/splitPdf.js'
 
 /** One-shot handlers: (payload) => result */
 const handlers = {
@@ -15,6 +16,7 @@ const handlers = {
     return { bytes, transfer: [bytes.buffer] }
   },
   [PdfWorkerMessage.COMPRESS]: async (payload) => compressPdf(payload),
+  [PdfWorkerMessage.SPLIT]: async (payload) => splitPdf(payload),
 }
 
 /** Streaming session handlers: (payload, jobId) => result | void */
@@ -140,6 +142,18 @@ self.addEventListener('message', async (event) => {
         {
           id,
           type: PdfWorkerMessage.COMPRESS_SUCCESS,
+          payload: result,
+        },
+        [result.bytes.buffer],
+      )
+      return
+    }
+
+    if (type === PdfWorkerMessage.SPLIT && result?.bytes) {
+      self.postMessage(
+        {
+          id,
+          type: PdfWorkerMessage.SPLIT_SUCCESS,
           payload: result,
         },
         [result.bytes.buffer],

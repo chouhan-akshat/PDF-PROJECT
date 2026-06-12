@@ -6,6 +6,7 @@ const MergeTestPage = lazy(() => import('./pages/MergeTestPage'))
 const ImageToPdfTestPage = lazy(() => import('./pages/ImageToPdfTestPage'))
 const NotesCleanerTestPage = lazy(() => import('./pages/NotesCleanerTestPage'))
 const CompressTestPage = lazy(() => import('./pages/CompressTestPage'))
+const SplitTestPage = lazy(() => import('./pages/SplitTestPage'))
 
 function PageFallback() {
   return (
@@ -29,12 +30,15 @@ export default function App() {
           <NotesCleanerTestPage onBack={() => setPage('home')} />
         ) : page === 'compress-test' ? (
           <CompressTestPage onBack={() => setPage('home')} />
+        ) : page === 'split-test' ? (
+          <SplitTestPage onBack={() => setPage('home')} />
         ) : (
           <HomePage
             onOpenMergeTest={() => setPage('merge-test')}
             onOpenImageToPdfTest={() => setPage('image-to-pdf-test')}
             onOpenNotesCleanerTest={() => setPage('notes-cleaner-test')}
             onOpenCompressTest={() => setPage('compress-test')}
+            onOpenSplitTest={() => setPage('split-test')}
           />
         )}
       </Suspense>

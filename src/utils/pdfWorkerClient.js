@@ -135,14 +135,56 @@ export async function compressPdfFile(file, options = {}) {
   }
 
   const buffer = await file.arrayBuffer()
+  const transferables = [buffer]
+  const payload = {
+    name: file.name,
+    buffer,
+    level: options.level ?? 'medium',
+  }
+
+  if (options.images && options.images.length > 0) {
+    payload.images = options.images
+    payload.originalSize = file.size
+    if (options.rasterDiagnostics) {
+      payload.rasterDiagnostics = options.rasterDiagnostics
+    }
+    if (options.pdfClassification) {
+      payload.pdfClassification = options.pdfClassification
+    }
+    if (options.classificationSignals) {
+      payload.classificationSignals = options.classificationSignals
+    }
+    for (const img of options.images) {
+      transferables.push(img.bytes.buffer)
+    }
+  }
 
   return postToWorker(
     PdfWorkerMessage.COMPRESS,
-    {
-      name: file.name,
-      buffer,
-      level: options.level ?? 'medium',
-    },
+    payload,
+    transferables,
+  )
+}
+
+/**
+ * Read one PDF on the main thread, split in the worker, return ZIP bytes + diagnostics.
+ * @param {File} file
+ * @returns {Promise<{ bytes: Uint8Array, diagnostics: object }>}
+ */
+export async function splitPdfFile(file) {
+  if (!file) {
+    throw new Error('Select a PDF file.')
+  }
+
+  if (file.type && file.type !== 'application/pdf') {
+    throw new Error(`"${file.name}" is not a PDF.`)
+  }
+
+  const buffer = await file.arrayBuffer()
+
+  return postToWorker(
+    PdfWorkerMessage.SPLIT,
+    { name: file.name, buffer },
     [buffer],
   )
 }

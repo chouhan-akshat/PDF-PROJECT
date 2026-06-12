@@ -3,6 +3,7 @@ export default function HomePage({
   onOpenImageToPdfTest,
   onOpenNotesCleanerTest,
   onOpenCompressTest,
+  onOpenSplitTest,
 }) {
   return (
     <section className="space-y-8">
@@ -75,6 +76,15 @@ export default function HomePage({
               className="inline-flex items-center justify-center rounded-lg border border-border bg-surface-muted px-5 py-2.5 text-sm font-medium text-white hover:bg-surface-elevated"
             >
               Open compression test
+            </button>
+          )}
+          {onOpenSplitTest && (
+            <button
+              type="button"
+              onClick={onOpenSplitTest}
+              className="inline-flex items-center justify-center rounded-lg border border-border bg-surface-muted px-5 py-2.5 text-sm font-medium text-white hover:bg-surface-elevated"
+            >
+              Open split PDF test
             </button>
           )}
         </div>

@@ -9,6 +9,10 @@ export const PdfWorkerMessage = {
   COMPRESS_SUCCESS: 'compress:success',
   COMPRESS_ERROR: 'compress:error',
 
+  SPLIT: 'split',
+  SPLIT_SUCCESS: 'split:success',
+  SPLIT_ERROR: 'split:error',
+
   IMAGE_TO_PDF_START: 'imageToPdf:start',
   IMAGE_TO_PDF_APPEND: 'imageToPdf:append',
   IMAGE_TO_PDF_FINISH: 'imageToPdf:finish',
@@ -48,6 +52,9 @@ export function pdfWorkerErrorType(requestType) {
   }
   if (requestType === PdfWorkerMessage.COMPRESS) {
     return PdfWorkerMessage.COMPRESS_ERROR
+  }
+  if (requestType === PdfWorkerMessage.SPLIT) {
+    return PdfWorkerMessage.SPLIT_ERROR
   }
   if (IMAGE_TO_PDF_TYPES.has(requestType)) {
     return PdfWorkerMessage.IMAGE_TO_PDF_ERROR

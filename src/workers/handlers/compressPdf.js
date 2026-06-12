@@ -5,6 +5,7 @@ import {
   PDFNumber,
   PDFRawStream,
 } from 'pdf-lib'
+import { classifyPdfContent } from './classifyPdfContent.js'
 
 const QUALITY_BY_LEVEL = {
   low: 0.85,
@@ -22,11 +23,13 @@ function ratio(originalSize, compressedSize) {
 }
 
 function diagnostics(startedAt, originalSize, compressedSize, extra = {}) {
+  const timeMs = Math.round(now() - startedAt)
   return {
     originalSize,
     compressedSize,
     compressionRatio: ratio(originalSize, compressedSize),
-    processingTimeMs: Math.round(now() - startedAt),
+    processingTimeMs: timeMs,
+    processingTime: timeMs,
     ...extra,
   }
 }
@@ -143,10 +146,115 @@ function drawImageFit(page, image, dimensions) {
  */
 export async function compressPdf(payload) {
   const startedAt = now()
-  const { buffer, level = 'medium', name = 'PDF' } = payload ?? {}
-  const originalSize = buffer?.byteLength ?? 0
+  const {
+    buffer,
+    level = 'medium',
+    name = 'PDF',
+    images,
+    rasterDiagnostics = {},
+    pdfClassification = null,
+    classificationSignals = null,
+  } = payload ?? {}
+  const originalSize = buffer?.byteLength ?? payload.originalSize ?? 0
   const quality = QUALITY_BY_LEVEL[level] ?? QUALITY_BY_LEVEL.medium
 
+  function v2Diagnostics(rebuiltPdfSize, extra = {}) {
+    const totalJpegBytes =
+      rasterDiagnostics.totalEmbeddedJpegBytes ??
+      images.reduce((sum, img) => sum + img.bytes.byteLength, 0)
+    const pageCount = rasterDiagnostics.pageCount ?? images.length
+
+    return {
+      level,
+      quality,
+      jpegQuality: rasterDiagnostics.jpegQuality ?? quality,
+      renderScale: rasterDiagnostics.renderScale ?? null,
+      pageCount,
+      averageRenderWidth: rasterDiagnostics.averageRenderWidth ?? null,
+      averageRenderHeight: rasterDiagnostics.averageRenderHeight ?? null,
+      averagePageImageKB:
+        rasterDiagnostics.averagePageImageKB ??
+        (pageCount > 0
+          ? Math.round((totalJpegBytes / pageCount) / 1024 * 100) / 100
+          : 0),
+      totalEmbeddedJpegBytes: totalJpegBytes,
+      rebuiltPdfSizeKB: Math.round(rebuiltPdfSize / 1024 * 100) / 100,
+      finalCompressionRatio: ratio(originalSize, rebuiltPdfSize),
+      pdfClassification,
+      classificationSignals,
+      modeUsed: 'V2',
+      ...extra,
+    }
+  }
+
+  // V2 mode: pre-rendered JPEG pages passed directly
+  if (images && images.length > 0) {
+    try {
+      const output = await PDFDocument.create()
+
+      for (let index = 0; index < images.length; index++) {
+        const img = images[index]
+        const embedded = await output.embedJpg(img.bytes)
+        const outputPage = output.addPage([img.width, img.height])
+        outputPage.drawImage(embedded, {
+          x: 0,
+          y: 0,
+          width: img.width,
+          height: img.height,
+        })
+      }
+
+      const compressed = await output.save()
+      const rebuiltPdfSize = compressed.byteLength
+
+      if (rebuiltPdfSize >= originalSize && buffer) {
+        return {
+          bytes: new Uint8Array(buffer),
+          diagnostics: diagnostics(startedAt, originalSize, originalSize, {
+            ...v2Diagnostics(rebuiltPdfSize, {
+              usedOriginal: true,
+              compressionApplied: false,
+              compressionSkipped: false,
+              reason: 'Compressed output was not smaller than the original.',
+            }),
+          }),
+        }
+      }
+
+      return {
+        bytes: compressed,
+        diagnostics: diagnostics(
+          startedAt,
+          originalSize,
+          rebuiltPdfSize,
+          {
+            ...v2Diagnostics(rebuiltPdfSize, {
+              usedOriginal: false,
+              compressionApplied: true,
+              compressionSkipped: false,
+              reason: 'Compressed via V2 canvas rasterization.',
+            }),
+          },
+        ),
+      }
+    } catch (err) {
+      return {
+        bytes: buffer ? new Uint8Array(buffer) : new Uint8Array(),
+        diagnostics: diagnostics(startedAt, originalSize, originalSize, {
+          ...v2Diagnostics(originalSize, {
+            usedOriginal: true,
+            compressionApplied: false,
+            compressionSkipped: false,
+            reason: `V2 Compression failed; original PDF returned. ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          }),
+        }),
+      }
+    }
+  }
+
+  // Otherwise, fallback to V1
   if (!originalSize) {
     throw new Error(`"${name}" is empty.`)
   }
@@ -162,6 +270,7 @@ export async function compressPdf(payload) {
           level,
           quality,
           usedOriginal: true,
+          modeUsed: 'V1',
           reason: 'PDF has no pages.',
         }),
       }
@@ -170,12 +279,18 @@ export async function compressPdf(payload) {
     const pageImages = pages.map(getPageJpegImage)
 
     if (pageImages.some((image) => !image)) {
+      const { category, signals } = classifyPdfContent(source)
+
       return {
         bytes: new Uint8Array(buffer),
         diagnostics: diagnostics(startedAt, originalSize, originalSize, {
           level,
           quality,
+          pageCount: pages.length,
           usedOriginal: true,
+          modeUsed: 'V1',
+          pdfClassification: category,
+          classificationSignals: signals,
           reason:
             'Unsupported PDF structure for V1. Expected image-only JPEG pages.',
         }),
@@ -205,6 +320,7 @@ export async function compressPdf(payload) {
           quality,
           pageCount: pages.length,
           usedOriginal: true,
+          modeUsed: 'V1',
           reason: 'Compressed output was not smaller than the original.',
         }),
       }
@@ -217,6 +333,7 @@ export async function compressPdf(payload) {
         quality,
         pageCount: pages.length,
         usedOriginal: false,
+        modeUsed: 'V1',
         reason: 'Compressed JPEG image pages.',
       }),
     }
@@ -227,6 +344,7 @@ export async function compressPdf(payload) {
         level,
         quality,
         usedOriginal: true,
+        modeUsed: 'V1',
         reason: `Compression failed; original PDF returned. ${
           err instanceof Error ? err.message : String(err)
         }`,
