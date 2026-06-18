@@ -1,6 +1,23 @@
 import { useCallback, useState } from 'react'
 import { downloadPdfBytes } from '../utils/download.js'
+import { isPasswordProtectedPdf } from '../utils/detectPasswordProtectedPdf.js'
 import { mergePdfFiles } from '../utils/pdfWorkerClient.js'
+
+async function validatePdfFiles(files) {
+  if (!files?.length) {
+    throw new Error('Select at least one PDF file.')
+  }
+
+  for (const file of files) {
+    const buffer = await file.arrayBuffer()
+    const isProtected = await isPasswordProtectedPdf(buffer)
+    if (isProtected) {
+      throw new Error(
+        'This PDF is password protected. Please remove the password and try again.',
+      )
+    }
+  }
+}
 
 export function usePdfMerge() {
   const [status, setStatus] = useState('idle')
@@ -18,6 +35,7 @@ export function usePdfMerge() {
     setError(null)
 
     try {
+      await validatePdfFiles(files)
       const bytes = await mergePdfFiles(files)
       const outputName =
         filename ?? `merged-${new Date().toISOString().slice(0, 10)}.pdf`

@@ -286,7 +286,7 @@ export default function RearrangeTestPage({ onBack }) {
   }, [reset])
 
   // -------------------------------------------------------------------------
-  // Thumbnail rendering
+  // Thumbnail rendering with batching and requestIdleCallback
   // -------------------------------------------------------------------------
 
   useEffect(() => {
@@ -296,6 +296,7 @@ export default function RearrangeTestPage({ onBack }) {
     let loadingTask = null
     let pdf = null
     const objectUrls = []
+    const BATCH_SIZE = 3 // Render 3 pages per batch to avoid blocking UI
 
     async function renderThumbnails() {
       setPages([])
@@ -324,40 +325,78 @@ export default function RearrangeTestPage({ onBack }) {
         setPages(initialPages)
         setPageOrder(initialPages.map((page) => page.id))
 
-        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
-          if (cancelled) return
+        // Batch rendering to avoid UI blocking
+        async function renderBatch(startPage, endPage) {
+          const renderedThumbnails = []
 
-          const page = await pdf.getPage(pageNumber)
-          const baseViewport = page.getViewport({ scale: 1 })
-          const scale = THUMBNAIL_WIDTH / baseViewport.width
-          const viewport = page.getViewport({ scale })
-          const canvas = document.createElement('canvas')
-          canvas.width = Math.ceil(viewport.width)
-          canvas.height = Math.ceil(viewport.height)
-          const context = canvas.getContext('2d')
+          for (let pageNumber = startPage; pageNumber <= endPage; pageNumber++) {
+            if (cancelled) return
 
-          if (!context) throw new Error(`Could not render sheet ${pageNumber}.`)
+            const page = await pdf.getPage(pageNumber)
+            const baseViewport = page.getViewport({ scale: 1 })
+            const scale = THUMBNAIL_WIDTH / baseViewport.width
+            const viewport = page.getViewport({ scale })
+            const canvas = document.createElement('canvas')
+            canvas.width = Math.ceil(viewport.width)
+            canvas.height = Math.ceil(viewport.height)
+            const context = canvas.getContext('2d')
 
-          await page.render({ canvasContext: context, viewport }).promise
-          const blob = await canvasToBlob(canvas)
-          const thumbnailUrl = URL.createObjectURL(blob)
-          objectUrls.push(thumbnailUrl)
+            if (!context) throw new Error(`Could not render sheet ${pageNumber}.`)
 
-          if (cancelled) {
-            URL.revokeObjectURL(thumbnailUrl)
-            return
+            await page.render({ canvasContext: context, viewport }).promise
+            const blob = await canvasToBlob(canvas)
+            const thumbnailUrl = URL.createObjectURL(blob)
+            objectUrls.push(thumbnailUrl)
+
+            if (cancelled) {
+              URL.revokeObjectURL(thumbnailUrl)
+              return
+            }
+
+            renderedThumbnails.push({ pageIndex: pageNumber - 1, thumbnailUrl })
           }
 
-          setPages((currentPages) =>
-            currentPages.map((currentPage) =>
-              currentPage.originalIndex === pageNumber - 1
-                ? { ...currentPage, thumbnailUrl }
-                : currentPage,
-            ),
-          )
+          // Update state with all rendered thumbnails at once
+          if (renderedThumbnails.length > 0) {
+            setPages((currentPages) => {
+              const updates = new Map(renderedThumbnails.map((t) => [t.pageIndex, t.thumbnailUrl]))
+              return currentPages.map((currentPage) =>
+                updates.has(currentPage.originalIndex)
+                  ? { ...currentPage, thumbnailUrl: updates.get(currentPage.originalIndex) }
+                  : currentPage,
+              )
+            })
+          }
         }
 
-        setThumbnailStatus('ready')
+        // Render in batches using requestIdleCallback for non-blocking behavior
+        let currentPage = 1
+        const totalPages = pdf.numPages
+
+        async function processBatches() {
+          while (currentPage <= totalPages && !cancelled) {
+            const batchEnd = Math.min(currentPage + BATCH_SIZE - 1, totalPages)
+            await renderBatch(currentPage, batchEnd)
+            currentPage = batchEnd + 1
+
+            // Yield to browser if there are more pages to render
+            if (currentPage <= totalPages && !cancelled) {
+              await new Promise((resolve) => {
+                if (typeof requestIdleCallback !== 'undefined') {
+                  requestIdleCallback(resolve, { timeout: 100 })
+                } else {
+                  setTimeout(resolve, 0)
+                }
+              })
+            }
+          }
+        }
+
+        await processBatches()
+
+        if (!cancelled) {
+          setThumbnailStatus('ready')
+        }
       } catch (err) {
         if (!cancelled) {
           const message = err instanceof Error ? err.message : String(err)

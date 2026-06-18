@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { downloadPdfBytes } from '../utils/download.js'
+import { isPasswordProtectedPdf } from '../utils/detectPasswordProtectedPdf.js'
 import { rotatePdfFile } from '../utils/pdfWorkerClient.js'
 
 export function usePdfRotate() {
@@ -21,6 +22,14 @@ export function usePdfRotate() {
     setDiagnostics(null)
 
     try {
+      const buffer = await file.arrayBuffer()
+      const isProtected = await isPasswordProtectedPdf(buffer)
+      if (isProtected) {
+        throw new Error(
+          'This PDF is password protected. Please remove the password and try again.',
+        )
+      }
+
       const result = await rotatePdfFile(file, { rotationDegrees })
       const stem = file.name.replace(/\.pdf$/i, '') || 'document'
       const outputName = filename ?? `${stem}-rotated.pdf`

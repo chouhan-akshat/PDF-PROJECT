@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { downloadZipBytes } from '../utils/download.js'
+import { isPasswordProtectedPdf } from '../utils/detectPasswordProtectedPdf.js'
 import { splitPdfFile } from '../utils/pdfWorkerClient.js'
 
 export function usePdfSplit() {
@@ -21,6 +22,14 @@ export function usePdfSplit() {
     setDiagnostics(null)
 
     try {
+      const buffer = await file.arrayBuffer()
+      const isProtected = await isPasswordProtectedPdf(buffer)
+      if (isProtected) {
+        throw new Error(
+          'This PDF is password protected. Please remove the password and try again.',
+        )
+      }
+
       const result = await splitPdfFile(file, { splitAfterPage })
       const stem = file.name.replace(/\.pdf$/i, '') || 'document'
       const outputName = filename ?? `${stem}-split.zip`

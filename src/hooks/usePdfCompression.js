@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { downloadPdfBytes } from '../utils/download.js'
+import { isPasswordProtectedPdf } from '../utils/detectPasswordProtectedPdf.js'
 import { compressPdfFile } from '../utils/pdfWorkerClient.js'
 
 const RENDER_SCALE_BY_LEVEL = {
@@ -35,6 +36,14 @@ export function usePdfCompression() {
     setDiagnostics(null)
 
     try {
+      const buffer = await file.arrayBuffer()
+      const isProtected = await isPasswordProtectedPdf(buffer)
+      if (isProtected) {
+        throw new Error(
+          'This PDF is password protected. Please remove the password and try again.',
+        )
+      }
+
       // 1. Try V1 first (fast path)
       let result = await compressPdfFile(file, { level })
 
