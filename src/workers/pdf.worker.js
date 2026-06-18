@@ -6,7 +6,10 @@ import { compressPdf } from './handlers/compressPdf.js'
 import { imageToPdfSession } from './handlers/imageToPdf.js'
 import { mergePdfs } from './handlers/mergePdfs.js'
 import { notesCleanerSession } from './handlers/notesCleaner.js'
+import { rearrangePdf } from './handlers/rearrangePdf.js'
+import { rotatePdf } from './handlers/rotatePdf.js'
 import { splitPdf } from './handlers/splitPdf.js'
+import { deletePdfPages } from './handlers/deletePdf.js'
 
 /** One-shot handlers: (payload) => result */
 const handlers = {
@@ -17,6 +20,9 @@ const handlers = {
   },
   [PdfWorkerMessage.COMPRESS]: async (payload) => compressPdf(payload),
   [PdfWorkerMessage.SPLIT]: async (payload) => splitPdf(payload),
+  [PdfWorkerMessage.ROTATE]: async (payload) => rotatePdf(payload),
+  [PdfWorkerMessage.REARRANGE]: async (payload) => rearrangePdf(payload),
+  [PdfWorkerMessage.DELETE_PAGES]: async (payload) => deletePdfPages(payload),
 }
 
 /** Streaming session handlers: (payload, jobId) => result | void */
@@ -154,6 +160,42 @@ self.addEventListener('message', async (event) => {
         {
           id,
           type: PdfWorkerMessage.SPLIT_SUCCESS,
+          payload: result,
+        },
+        [result.bytes.buffer],
+      )
+      return
+    }
+
+    if (type === PdfWorkerMessage.ROTATE && result?.bytes) {
+      self.postMessage(
+        {
+          id,
+          type: PdfWorkerMessage.ROTATE_SUCCESS,
+          payload: result,
+        },
+        [result.bytes.buffer],
+      )
+      return
+    }
+
+    if (type === PdfWorkerMessage.REARRANGE && result?.bytes) {
+      self.postMessage(
+        {
+          id,
+          type: PdfWorkerMessage.REARRANGE_SUCCESS,
+          payload: result,
+        },
+        [result.bytes.buffer],
+      )
+      return
+    }
+
+    if (type === PdfWorkerMessage.DELETE_PAGES && result?.bytes) {
+      self.postMessage(
+        {
+          id,
+          type: PdfWorkerMessage.DELETE_PAGES_SUCCESS,
           payload: result,
         },
         [result.bytes.buffer],

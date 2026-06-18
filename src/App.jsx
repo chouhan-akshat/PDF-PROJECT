@@ -7,6 +7,9 @@ const ImageToPdfTestPage = lazy(() => import('./pages/ImageToPdfTestPage'))
 const NotesCleanerTestPage = lazy(() => import('./pages/NotesCleanerTestPage'))
 const CompressTestPage = lazy(() => import('./pages/CompressTestPage'))
 const SplitTestPage = lazy(() => import('./pages/SplitTestPage'))
+const RotateTestPage = lazy(() => import('./pages/RotateTestPage'))
+const RearrangeTestPage = lazy(() => import('./pages/RearrangeTestPage'))
+const DeletePagesPage = lazy(() => import('./pages/DeletePagesPage'))
 
 function PageFallback() {
   return (
@@ -20,7 +23,7 @@ export default function App() {
   const [page, setPage] = useState('home')
 
   return (
-    <AppLayout>
+    <AppLayout currentPage={page} onNavigate={setPage}>
       <Suspense fallback={<PageFallback />}>
         {page === 'merge-test' ? (
           <MergeTestPage onBack={() => setPage('home')} />
@@ -32,6 +35,12 @@ export default function App() {
           <CompressTestPage onBack={() => setPage('home')} />
         ) : page === 'split-test' ? (
           <SplitTestPage onBack={() => setPage('home')} />
+        ) : page === 'rotate-test' ? (
+          <RotateTestPage onBack={() => setPage('home')} />
+        ) : page === 'rearrange-test' ? (
+          <RearrangeTestPage onBack={() => setPage('home')} />
+        ) : page === 'delete-pages-test' ? (
+          <DeletePagesPage onBack={() => setPage('home')} />
         ) : (
           <HomePage
             onOpenMergeTest={() => setPage('merge-test')}
@@ -39,6 +48,9 @@ export default function App() {
             onOpenNotesCleanerTest={() => setPage('notes-cleaner-test')}
             onOpenCompressTest={() => setPage('compress-test')}
             onOpenSplitTest={() => setPage('split-test')}
+            onOpenRotateTest={() => setPage('rotate-test')}
+            onOpenRearrangeTest={() => setPage('rearrange-test')}
+            onOpenDeletePagesTest={() => setPage('delete-pages-test')}
           />
         )}
       </Suspense>

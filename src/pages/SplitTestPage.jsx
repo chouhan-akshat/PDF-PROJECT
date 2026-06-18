@@ -1,8 +1,12 @@
 import { useState } from 'react'
 import { usePdfSplit } from '../hooks/usePdfSplit.js'
+import ToolPageLayout from '../components/layout/ToolPageLayout.jsx'
 
 export default function SplitTestPage({ onBack }) {
   const [file, setFile] = useState(null)
+  const [splitAfterPage, setSplitAfterPage] = useState('')
+  const [localValidationError, setLocalValidationError] = useState('')
+
   const {
     split,
     reset,
@@ -13,81 +17,97 @@ export default function SplitTestPage({ onBack }) {
     isSuccess,
   } = usePdfSplit()
 
-  function handleFileChange(event) {
+  function handleFileSelect(selected) {
     reset()
-    setFile(event.target.files?.[0] ?? null)
+    setLocalValidationError('')
+    setFile(selected)
+  }
+
+  function handleFileClear() {
+    reset()
+    setFile(null)
+  }
+
+  function handleSplitChange(event) {
+    setLocalValidationError('')
+    setSplitAfterPage(event.target.value)
   }
 
   async function handleSplit() {
+    if (!file) {
+      setLocalValidationError('Choose a PDF file to split.')
+      return
+    }
+
+    const pageNum = parseInt(splitAfterPage, 10)
+    if (Number.isNaN(pageNum) || pageNum < 1) {
+      setLocalValidationError('Enter a valid page number (1 or higher).')
+      return
+    }
+
     try {
-      await split(file)
+      await split(file, { splitAfterPage: pageNum })
     } catch {
       // Error surfaced via hook `error` state
     }
   }
 
+  const diagnosticsRows =
+    isSuccess && diagnostics
+      ? [
+          { label: 'Original pages', value: diagnostics.originalPageCount },
+          { label: 'Split after', value: `Page ${diagnostics.splitAfterPage}` },
+          { label: 'Part 1 size', value: `${diagnostics.part1SizeKB} KB` },
+          { label: 'Part 2 size', value: `${diagnostics.part2SizeKB} KB` },
+          { label: 'Time taken', value: `${diagnostics.processingTimeMs} ms` },
+        ]
+      : undefined
+
+  const optionsSlot = (
+    <div className="space-y-3">
+      <label htmlFor="splitAfterPage" className="text-body-sm font-semibold text-primary block">
+        Split after page
+      </label>
+      <input
+        id="splitAfterPage"
+        type="number"
+        min="1"
+        value={splitAfterPage}
+        onChange={handleSplitChange}
+        disabled={isLoading}
+        placeholder="e.g. 5"
+        className="w-full sm:w-48 rounded-lg border border-border-subtle bg-surface-base px-3 py-2 text-body-sm text-primary placeholder:text-tertiary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
+      />
+      <p className="text-caption text-secondary">
+        The document will be split into two parts: Pages 1 to X, and Pages X+1 to end.
+      </p>
+    </div>
+  )
+
   return (
-    <section style={{ maxWidth: 620 }}>
-      <h1 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Split PDF (V1)</h1>
-      <p style={{ marginTop: 8, fontSize: 14, opacity: 0.8 }}>
-        Splits every page into its own PDF and downloads a ZIP archive. Processing
-        runs fully client-side in a Web Worker.
-      </p>
-
-      {onBack && (
-        <button type="button" onClick={onBack} style={{ marginTop: 12 }}>
-          Back
-        </button>
-      )}
-
-      <div style={{ marginTop: 16 }}>
-        <input
-          type="file"
-          accept="application/pdf,.pdf"
-          onChange={handleFileChange}
-        />
-      </div>
-
-      {file && (
-        <p style={{ marginTop: 12, fontSize: 14 }}>
-          {file.name} ({Math.round(file.size / 1024)} KB)
-        </p>
-      )}
-
-      <button
-        type="button"
-        onClick={handleSplit}
-        disabled={isLoading || !file}
-        style={{ marginTop: 16 }}
-      >
-        {isLoading ? 'Splitting in worker…' : 'Split PDF'}
-      </button>
-
-      {isSuccess && diagnostics && (
-        <div style={{ marginTop: 12, fontSize: 14, color: '#4ade80' }}>
-          <p>Split complete — ZIP download should have started.</p>
-          <dl style={{ marginTop: 8 }}>
-            <dt>Page count</dt>
-            <dd>{diagnostics.pageCount}</dd>
-            <dt>Generated files</dt>
-            <dd>{diagnostics.generatedFiles}</dd>
-            <dt>ZIP size</dt>
-            <dd>{diagnostics.zipSizeKB} KB</dd>
-            <dt>Processing time</dt>
-            <dd>{diagnostics.processingTimeMs} ms</dd>
-          </dl>
-        </div>
-      )}
-
-      {error && (
-        <p role="alert" style={{ marginTop: 12, fontSize: 14, color: '#f87171' }}>
-          {error}
-        </p>
-      )}
-
-      <p style={{ marginTop: 12, fontSize: 12, opacity: 0.6 }}>
-        Status: {status}
-      </p>
-    </section>
+    <ToolPageLayout
+      title="Split PDF"
+      description="Split a PDF into two separate files at a specific page number. Processing runs entirely in your browser."
+      onBack={onBack}
+      accept="application/pdf,.pdf"
+      file={file}
+      onFileSelect={handleFileSelect}
+      onFileClear={handleFileClear}
+      uploadLabel="Drop PDF here"
+      uploadHint="or click to browse"
+      uploadAcceptLabel="PDF files only"
+      options={optionsSlot}
+      actionLabel="Split PDF & Download"
+      actionLoadingLabel="Splitting in worker…"
+      onAction={handleSplit}
+      actionDisabled={isLoading || !file}
+      isLoading={isLoading}
+      isSuccess={isSuccess}
+      successMessage="Split complete — ZIP download should have started."
+      error={error}
+      validationError={localValidationError}
+      status={status}
+      diagnostics={diagnosticsRows}
+    />
   )
 }

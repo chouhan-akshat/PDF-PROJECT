@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react'
-import { downloadZipBytes } from '../utils/download.js'
-import { splitPdfFile } from '../utils/pdfWorkerClient.js'
+import { downloadPdfBytes } from '../utils/download.js'
+import { rotatePdfFile } from '../utils/pdfWorkerClient.js'
 
-export function usePdfSplit() {
+export function usePdfRotate() {
   const [status, setStatus] = useState('idle')
   const [error, setError] = useState(null)
   const [diagnostics, setDiagnostics] = useState(null)
@@ -13,20 +13,20 @@ export function usePdfSplit() {
     setDiagnostics(null)
   }, [])
 
-  const split = useCallback(async (file, options = {}) => {
-    const { download = true, filename, splitAfterPage } = options
+  const rotate = useCallback(async (file, options = {}) => {
+    const { download = true, filename, rotationDegrees } = options
 
     setStatus('loading')
     setError(null)
     setDiagnostics(null)
 
     try {
-      const result = await splitPdfFile(file, { splitAfterPage })
+      const result = await rotatePdfFile(file, { rotationDegrees })
       const stem = file.name.replace(/\.pdf$/i, '') || 'document'
-      const outputName = filename ?? `${stem}-split.zip`
+      const outputName = filename ?? `${stem}-rotated.pdf`
 
       if (download) {
-        downloadZipBytes(result.bytes, outputName)
+        downloadPdfBytes(result.bytes, outputName)
       }
 
       setDiagnostics(result.diagnostics)
@@ -41,7 +41,7 @@ export function usePdfSplit() {
   }, [])
 
   return {
-    split,
+    rotate,
     reset,
     status,
     error,

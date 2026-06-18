@@ -13,6 +13,18 @@ export const PdfWorkerMessage = {
   SPLIT_SUCCESS: 'split:success',
   SPLIT_ERROR: 'split:error',
 
+  ROTATE: 'rotate',
+  ROTATE_SUCCESS: 'rotate:success',
+  ROTATE_ERROR: 'rotate:error',
+
+  REARRANGE: 'rearrange',
+  REARRANGE_SUCCESS: 'rearrange:success',
+  REARRANGE_ERROR: 'rearrange:error',
+
+  DELETE_PAGES: 'deletePages',
+  DELETE_PAGES_SUCCESS: 'deletePages:success',
+  DELETE_PAGES_ERROR: 'deletePages:error',
+
   IMAGE_TO_PDF_START: 'imageToPdf:start',
   IMAGE_TO_PDF_APPEND: 'imageToPdf:append',
   IMAGE_TO_PDF_FINISH: 'imageToPdf:finish',
@@ -55,6 +67,15 @@ export function pdfWorkerErrorType(requestType) {
   }
   if (requestType === PdfWorkerMessage.SPLIT) {
     return PdfWorkerMessage.SPLIT_ERROR
+  }
+  if (requestType === PdfWorkerMessage.ROTATE) {
+    return PdfWorkerMessage.ROTATE_ERROR
+  }
+  if (requestType === PdfWorkerMessage.REARRANGE) {
+    return PdfWorkerMessage.REARRANGE_ERROR
+  }
+  if (requestType === PdfWorkerMessage.DELETE_PAGES) {
+    return PdfWorkerMessage.DELETE_PAGES_ERROR
   }
   if (IMAGE_TO_PDF_TYPES.has(requestType)) {
     return PdfWorkerMessage.IMAGE_TO_PDF_ERROR

@@ -1,15 +1,20 @@
 import { useState } from 'react'
 import { useNotesCleaner } from '../hooks/useNotesCleaner.js'
+import ToolPageLayout from '../components/layout/ToolPageLayout.jsx'
 
 export default function NotesCleanerTestPage({ onBack }) {
   const [files, setFiles] = useState([])
   const { clean, reset, status, error, logs, isLoading, isSuccess } =
     useNotesCleaner()
 
-  function handleFileChange(event) {
+  function handleFileSelect(selected) {
     reset()
-    const selected = Array.from(event.target.files ?? [])
-    setFiles(selected)
+    setFiles(Array.isArray(selected) ? selected : [selected])
+  }
+
+  function handleFileClear() {
+    reset()
+    setFiles([])
   }
 
   async function handleClean() {
@@ -20,93 +25,38 @@ export default function NotesCleanerTestPage({ onBack }) {
     }
   }
 
+  /* Map worker log entries → DiagnosticsPanel rows */
+  const diagnosticsRows =
+    isSuccess && logs.length > 0
+      ? logs.map((entry) => ({
+          label: entry.step ?? 'step',
+          value: entry.status ?? '',
+        }))
+      : undefined
+
   return (
-    <section style={{ maxWidth: 560 }}>
-      <h1 style={{ fontSize: '1.25rem', fontWeight: 600 }}>
-        Notes Cleaner (stage 1)
-      </h1>
-      <p style={{ marginTop: 8, fontSize: 14, opacity: 0.8 }}>
-        Shadow reduction + contrast enhancement → A4 PDF. No boundary detection
-        or perspective correction yet. Processing runs sequentially in the worker.
-      </p>
-
-      {onBack && (
-        <button type="button" onClick={onBack} style={{ marginTop: 12 }}>
-          Back
-        </button>
-      )}
-
-      <div style={{ marginTop: 16 }}>
-        <input
-          type="file"
-          accept="image/jpeg,image/jpg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-          multiple
-          capture="environment"
-          onChange={handleFileChange}
-        />
-      </div>
-
-      {files.length > 0 && (
-        <ol style={{ marginTop: 12, paddingLeft: 20, fontSize: 14 }}>
-          {files.map((file) => (
-            <li key={`${file.name}-${file.size}-${file.lastModified}`}>
-              {file.name} ({Math.round(file.size / 1024)} KB)
-            </li>
-          ))}
-        </ol>
-      )}
-
-      <button
-        type="button"
-        onClick={handleClean}
-        disabled={isLoading || files.length < 1}
-        style={{ marginTop: 16 }}
-      >
-        {isLoading ? 'Cleaning in worker…' : 'Clean & export PDF'}
-      </button>
-
-      {isSuccess && (
-        <p style={{ marginTop: 12, fontSize: 14, color: '#4ade80' }}>
-          Cleaned PDF ready — download should have started.
-        </p>
-      )}
-
-      {error && (
-        <p role="alert" style={{ marginTop: 12, fontSize: 14, color: '#f87171' }}>
-          {error}
-        </p>
-      )}
-
-      {logs.length > 0 && (
-        <details style={{ marginTop: 12, fontSize: 12 }} open={Boolean(error)}>
-          <summary>Worker diagnostics ({logs.length} entries)</summary>
-          <pre
-            style={{
-              marginTop: 8,
-              maxHeight: 240,
-              overflow: 'auto',
-              padding: 8,
-              background: '#111',
-              borderRadius: 4,
-              whiteSpace: 'pre-wrap',
-            }}
-          >
-            {logs
-              .map((entry) => {
-                const detail =
-                  entry.detail && Object.keys(entry.detail).length > 0
-                    ? ` ${JSON.stringify(entry.detail)}`
-                    : ''
-                return `${entry.step ?? 'log'} ${entry.status ?? ''}${detail}`
-              })
-              .join('\n')}
-          </pre>
-        </details>
-      )}
-
-      <p style={{ marginTop: 12, fontSize: 12, opacity: 0.6 }}>
-        Status: {status}
-      </p>
-    </section>
+    <ToolPageLayout
+      title="Notes Cleaner"
+      description="Shadow reduction and contrast enhancement for scanned notes, exported as a clean A4 PDF. Processing runs sequentially in a Web Worker."
+      onBack={onBack}
+      accept="image/jpeg,image/jpg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+      multiple
+      files={files}
+      onFileSelect={handleFileSelect}
+      onFileClear={handleFileClear}
+      uploadLabel="Drop note images here"
+      uploadHint="or click to browse — select one or more"
+      uploadAcceptLabel="JPG, PNG, WebP"
+      actionLabel="Clean & Export PDF"
+      actionLoadingLabel="Cleaning in worker…"
+      onAction={handleClean}
+      actionDisabled={isLoading || files.length < 1}
+      isLoading={isLoading}
+      isSuccess={isSuccess}
+      successMessage="Cleaned PDF ready — your file has been downloaded."
+      error={error}
+      status={status}
+      diagnostics={diagnosticsRows}
+    />
   )
 }

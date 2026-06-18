@@ -5,28 +5,33 @@ function now() {
   return typeof performance !== 'undefined' ? performance.now() : Date.now()
 }
 
-function pageFileName(stem, pageNumber, pageCount) {
-  const digits = Math.max(3, String(pageCount).length)
-  const padded = String(pageNumber).padStart(digits, '0')
-  return `${stem}-page-${padded}.pdf`
-}
-
 function fileStem(name = 'document.pdf') {
   const trimmed = name.trim() || 'document.pdf'
   return trimmed.replace(/\.pdf$/i, '') || 'document'
 }
 
+function pageIndexes(start, endExclusive) {
+  return Array.from(
+    { length: endExclusive - start },
+    (_item, offset) => start + offset,
+  )
+}
+
 /**
- * Split every page of a PDF into individual PDFs and package them in a ZIP.
- * @param {{ buffer: ArrayBuffer, name?: string }} payload
+ * Split a PDF into two PDFs after a 1-based page number and package them in a ZIP.
+ * @param {{ buffer: ArrayBuffer, name?: string, splitAfterPage?: number }} payload
  * @returns {Promise<{ bytes: Uint8Array, diagnostics: object }>}
  */
 export async function splitPdf(payload) {
   const startedAt = now()
-  const { buffer, name = 'document.pdf' } = payload ?? {}
+  const { buffer, name = 'document.pdf', splitAfterPage } = payload ?? {}
 
   if (!buffer?.byteLength) {
     throw new Error('PDF is empty.')
+  }
+
+  if (!Number.isInteger(splitAfterPage)) {
+    throw new Error('Enter a whole page number to split after.')
   }
 
   let source
@@ -38,25 +43,36 @@ export async function splitPdf(payload) {
     throw new Error(`Could not read PDF: ${detail}`, { cause: err })
   }
 
-  const pageCount = source.getPageCount()
+  const totalPages = source.getPageCount()
 
-  if (pageCount === 0) {
+  if (totalPages === 0) {
     throw new Error('PDF has no pages.')
   }
 
+  if (splitAfterPage <= 0 || splitAfterPage >= totalPages) {
+    throw new Error(`Split after page must be between 1 and ${totalPages - 1}.`)
+  }
+
   const stem = fileStem(name)
-  const zipEntries = {}
-  const generatedFileNames = []
+  const part1 = await PDFDocument.create()
+  const part2 = await PDFDocument.create()
+  const part1CopiedPages = await part1.copyPages(
+    source,
+    pageIndexes(0, splitAfterPage),
+  )
+  const part2CopiedPages = await part2.copyPages(
+    source,
+    pageIndexes(splitAfterPage, totalPages),
+  )
 
-  for (let index = 0; index < pageCount; index++) {
-    const output = await PDFDocument.create()
-    const [page] = await output.copyPages(source, [index])
-    output.addPage(page)
+  part1CopiedPages.forEach((page) => part1.addPage(page))
+  part2CopiedPages.forEach((page) => part2.addPage(page))
 
-    const pageBytes = await output.save()
-    const fileName = pageFileName(stem, index + 1, pageCount)
-    generatedFileNames.push(fileName)
-    zipEntries[fileName] = pageBytes
+  const part1Bytes = await part1.save()
+  const part2Bytes = await part2.save()
+  const zipEntries = {
+    [`${stem}-part-1.pdf`]: part1Bytes,
+    [`${stem}-part-2.pdf`]: part2Bytes,
   }
 
   const zipBytes = zipSync(zipEntries)
@@ -64,9 +80,10 @@ export async function splitPdf(payload) {
   return {
     bytes: zipBytes,
     diagnostics: {
-      pageCount,
-      generatedFiles: generatedFileNames.length,
-      generatedFileNames,
+      totalPages,
+      splitAfterPage,
+      part1Pages: splitAfterPage,
+      part2Pages: totalPages - splitAfterPage,
       zipSizeKB: Math.round((zipBytes.byteLength / 1024) * 100) / 100,
       processingTimeMs: Math.round(now() - startedAt),
     },

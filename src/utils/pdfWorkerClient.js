@@ -169,9 +169,10 @@ export async function compressPdfFile(file, options = {}) {
 /**
  * Read one PDF on the main thread, split in the worker, return ZIP bytes + diagnostics.
  * @param {File} file
+ * @param {{ splitAfterPage?: number }} [options]
  * @returns {Promise<{ bytes: Uint8Array, diagnostics: object }>}
  */
-export async function splitPdfFile(file) {
+export async function splitPdfFile(file, options = {}) {
   if (!file) {
     throw new Error('Select a PDF file.')
   }
@@ -184,7 +185,74 @@ export async function splitPdfFile(file) {
 
   return postToWorker(
     PdfWorkerMessage.SPLIT,
-    { name: file.name, buffer },
+    { name: file.name, buffer, splitAfterPage: options.splitAfterPage },
+    [buffer],
+  )
+}
+
+/**
+ * Read one PDF on the main thread, rotate in the worker, return bytes + diagnostics.
+ * @param {File} file
+ * @param {{ rotationDegrees?: number }} [options]
+ * @returns {Promise<{ bytes: Uint8Array, diagnostics: object }>}
+ */
+export async function rotatePdfFile(file, options = {}) {
+  if (!file) {
+    throw new Error('Select a PDF file.')
+  }
+
+  if (file.type && file.type !== 'application/pdf') {
+    throw new Error(`"${file.name}" is not a PDF.`)
+  }
+
+  const buffer = await file.arrayBuffer()
+
+  return postToWorker(
+    PdfWorkerMessage.ROTATE,
+    { name: file.name, buffer, rotationDegrees: options.rotationDegrees },
+    [buffer],
+  )
+}
+
+/**
+ * Read one PDF on the main thread, rearrange in the worker, return bytes + diagnostics.
+ * @param {File} file
+ * @param {{ orderedPageIndexes?: number[] }} [options]
+ * @returns {Promise<{ bytes: Uint8Array, diagnostics: object }>}
+ */
+export async function rearrangePdfFile(file, options = {}) {
+  if (!file) {
+    throw new Error('Select a PDF file.')
+  }
+
+  if (file.type && file.type !== 'application/pdf') {
+    throw new Error(`"${file.name}" is not a PDF.`)
+  }
+
+  const buffer = await file.arrayBuffer()
+
+  return postToWorker(
+    PdfWorkerMessage.REARRANGE,
+    { name: file.name, buffer, orderedPageIndexes: options.orderedPageIndexes },
+    [buffer],
+  )
+}
+
+/**
+ * Read one PDF on the main thread, delete pages in the worker, return bytes + diagnostics.
+ * @param {File} file
+ * @param {{ deletedIndexes?: number[] }} [options]
+ * @returns {Promise<{ bytes: Uint8Array, diagnostics: object }>}
+ */
+export async function deletePdfPages(file, options = {}) {
+  if (!file) throw new Error('Select a PDF file.')
+  if (file.type && file.type !== 'application/pdf')
+    throw new Error(`"${file.name}" is not a PDF.`)
+
+  const buffer = await file.arrayBuffer()
+  return postToWorker(
+    PdfWorkerMessage.DELETE_PAGES,
+    { name: file.name, buffer, deletedIndexes: options.deletedIndexes },
     [buffer],
   )
 }

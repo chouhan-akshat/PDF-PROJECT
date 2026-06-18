@@ -1,43 +1,30 @@
 import { useState } from 'react'
 import { usePdfCompression } from '../hooks/usePdfCompression.js'
+import ToolPageLayout from '../components/layout/ToolPageLayout.jsx'
+import { cn } from '../utils/cn.js'
 
-const LEVELS = [
-  { value: 'low', label: 'Low', quality: '85' },
-  { value: 'medium', label: 'Medium', quality: '70' },
-  { value: 'high', label: 'High', quality: '50' },
+const COMPRESSION_LEVELS = [
+  {
+    id: 'LOW',
+    label: 'Basic compression',
+    description: 'High quality, less compression',
+  },
+  {
+    id: 'MEDIUM',
+    label: 'Strong compression',
+    description: 'Good quality, good compression',
+  },
+  {
+    id: 'HIGH',
+    label: 'Extreme compression',
+    description: 'Lower quality, smallest file',
+  },
 ]
-
-const CLASSIFICATION_LABELS = {
-  imageHeavy: 'Image-heavy PDF detected',
-  textHeavy: 'Text-heavy PDF detected',
-  mixed: 'Mixed-content PDF detected',
-}
-
-function formatBytes(bytes = 0) {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
-}
-
-function formatRatio(value) {
-  if (typeof value !== 'number') return 'n/a'
-  return `${Math.round((1 - value) * 100)}% smaller`
-}
-
-function classificationLabel(classification) {
-  return CLASSIFICATION_LABELS[classification] ?? classification ?? 'n/a'
-}
-
-function compressionStatusLabel(diagnostics) {
-  if (diagnostics.compressionSkipped) return 'Compression skipped'
-  if (diagnostics.compressionApplied) return 'Compression applied'
-  if (diagnostics.usedOriginal) return 'Compression skipped'
-  return 'Compression applied'
-}
 
 export default function CompressTestPage({ onBack }) {
   const [file, setFile] = useState(null)
-  const [level, setLevel] = useState('medium')
+  const [level, setLevel] = useState('MEDIUM')
+
   const {
     compress,
     reset,
@@ -48,12 +35,19 @@ export default function CompressTestPage({ onBack }) {
     isSuccess,
   } = usePdfCompression()
 
-  function handleFileChange(event) {
+  function handleFileSelect(selected) {
     reset()
-    setFile(event.target.files?.[0] ?? null)
+    setFile(selected)
+  }
+
+  function handleFileClear() {
+    reset()
+    setFile(null)
   }
 
   async function handleCompress() {
+    if (!file) return
+
     try {
       await compress(file, { level })
     } catch {
@@ -61,157 +55,96 @@ export default function CompressTestPage({ onBack }) {
     }
   }
 
-  const statusColor =
-    diagnostics?.compressionSkipped || diagnostics?.usedOriginal
-      ? '#fbbf24'
-      : '#4ade80'
+  /* Map hook diagnostics into DiagnosticsPanel rows */
+  let diagnosticsRows = undefined
+  if (isSuccess && diagnostics) {
+    diagnosticsRows = [
+      { label: 'Mode', value: diagnostics.modeUsed },
+      { label: 'Original size', value: `${diagnostics.originalSizeKB} KB` },
+      { label: 'Compressed size', value: `${diagnostics.compressedSizeKB} KB` },
+      { label: 'Reduction', value: `${diagnostics.reductionPercentage}%` },
+      { label: 'Time taken', value: `${diagnostics.processingTimeMs} ms` },
+    ]
+
+    if (diagnostics.modeUsed === 'V2') {
+      diagnosticsRows.push(
+        { label: 'Images found', value: diagnostics.imagesFound },
+        { label: 'Images processed', value: diagnostics.imagesProcessed },
+        { label: 'PDF parser', value: `${diagnostics.timingPdfParseMs} ms` },
+        { label: 'Image extraction', value: `${diagnostics.timingImageExtractionMs} ms` },
+        { label: 'Image resize', value: `${diagnostics.timingImageResizeMs} ms` },
+        { label: 'PDF rebuild', value: `${diagnostics.timingPdfRebuildMs} ms` },
+      )
+    }
+  }
+
+  const optionsSlot = (
+    <div className="space-y-3">
+      <h3 className="text-body-sm font-semibold text-primary">Compression level</h3>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        {COMPRESSION_LEVELS.map(({ id, label, description }) => {
+          const isSelected = level === id
+          return (
+            <label
+              key={id}
+              className={cn(
+                'flex flex-1 cursor-pointer flex-col gap-1 rounded-lg border p-3 transition-colors',
+                isSelected
+                  ? 'border-accent bg-accent/5'
+                  : 'border-border-subtle bg-surface-base hover:border-border-default',
+                isLoading && 'pointer-events-none opacity-50',
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="compression-level"
+                  value={id}
+                  checked={isSelected}
+                  onChange={(e) => {
+                    reset()
+                    setLevel(e.target.value)
+                  }}
+                  disabled={isLoading}
+                  className="size-4 shrink-0 text-accent focus:ring-accent"
+                />
+                <span className="text-body-sm font-medium text-primary">
+                  {label}
+                </span>
+              </div>
+              <span className="pl-6 text-caption text-secondary">
+                {description}
+              </span>
+            </label>
+          )
+        })}
+      </div>
+    </div>
+  )
 
   return (
-    <section style={{ maxWidth: 620 }}>
-      <h1 style={{ fontSize: '1.25rem', fontWeight: 600 }}>
-        PDF Compression
-      </h1>
-      <p style={{ marginTop: 8, fontSize: 14, opacity: 0.8 }}>
-        V1 compresses image-only JPEG PDFs. V2 rasterizes image-heavy and mixed
-        PDFs. Text-heavy PDFs are returned unchanged.
-      </p>
-
-      {onBack && (
-        <button type="button" onClick={onBack} style={{ marginTop: 12 }}>
-          Back
-        </button>
-      )}
-
-      <div style={{ marginTop: 16 }}>
-        <input
-          type="file"
-          accept="application/pdf,.pdf"
-          onChange={handleFileChange}
-        />
-      </div>
-
-      {file && (
-        <p style={{ marginTop: 12, fontSize: 14 }}>
-          {file.name} ({formatBytes(file.size)})
-        </p>
-      )}
-
-      <fieldset
-        style={{
-          marginTop: 16,
-          display: 'flex',
-          gap: 12,
-          border: 0,
-          padding: 0,
-        }}
-      >
-        {LEVELS.map((item) => (
-          <label key={item.value} style={{ fontSize: 14 }}>
-            <input
-              type="radio"
-              name="compression-level"
-              value={item.value}
-              checked={level === item.value}
-              onChange={() => setLevel(item.value)}
-              disabled={isLoading}
-            />{' '}
-            {item.label} ({item.quality})
-          </label>
-        ))}
-      </fieldset>
-
-      <button
-        type="button"
-        onClick={handleCompress}
-        disabled={isLoading || !file}
-        style={{ marginTop: 16 }}
-      >
-        {isLoading ? 'Compressing in worker...' : 'Compress & download'}
-      </button>
-
-      {isSuccess && diagnostics && (
-        <div style={{ marginTop: 12, fontSize: 14, color: statusColor }}>
-          <p>
-            {compressionStatusLabel(diagnostics)} — download should have started.
-          </p>
-
-          {diagnostics.pdfClassification && (
-            <p style={{ marginTop: 8, fontWeight: 600 }}>
-              {classificationLabel(diagnostics.pdfClassification)}
-            </p>
-          )}
-
-          <dl style={{ marginTop: 8 }}>
-            <dt>PDF classification</dt>
-            <dd>{diagnostics.pdfClassification ?? 'n/a'}</dd>
-            <dt>Compression status</dt>
-            <dd>{compressionStatusLabel(diagnostics)}</dd>
-            <dt>Mode used</dt>
-            <dd>{diagnostics.modeUsed ?? 'V1'}</dd>
-            <dt>Pages processed</dt>
-            <dd>{diagnostics.pageCount ?? 0}</dd>
-            <dt>Original size</dt>
-            <dd>{formatBytes(diagnostics.originalSize)}</dd>
-            <dt>Compressed size</dt>
-            <dd>{formatBytes(diagnostics.compressedSize)}</dd>
-            <dt>Compression ratio</dt>
-            <dd>{formatRatio(diagnostics.compressionRatio)}</dd>
-            {diagnostics.modeUsed === 'V2' && (
-              <>
-                <dt>Render scale</dt>
-                <dd>{diagnostics.renderScale ?? 'n/a'}</dd>
-                <dt>JPEG quality</dt>
-                <dd>{diagnostics.jpegQuality ?? diagnostics.quality ?? 'n/a'}</dd>
-                <dt>Average page image</dt>
-                <dd>
-                  {diagnostics.averagePageImageKB != null
-                    ? `${diagnostics.averagePageImageKB} KB`
-                    : 'n/a'}
-                </dd>
-                <dt>Total embedded JPEG</dt>
-                <dd>
-                  {diagnostics.totalEmbeddedJpegBytes != null
-                    ? formatBytes(diagnostics.totalEmbeddedJpegBytes)
-                    : 'n/a'}
-                </dd>
-                <dt>Average render dimensions</dt>
-                <dd>
-                  {diagnostics.averageRenderWidth != null &&
-                  diagnostics.averageRenderHeight != null
-                    ? `${diagnostics.averageRenderWidth} × ${diagnostics.averageRenderHeight} px`
-                    : 'n/a'}
-                </dd>
-                <dt>Rebuilt PDF size (before comparison)</dt>
-                <dd>
-                  {diagnostics.rebuiltPdfSizeKB != null
-                    ? `${diagnostics.rebuiltPdfSizeKB} KB`
-                    : 'n/a'}
-                </dd>
-                <dt>Final compression ratio (rebuilt vs original)</dt>
-                <dd>
-                  {diagnostics.finalCompressionRatio != null
-                    ? formatRatio(diagnostics.finalCompressionRatio)
-                    : 'n/a'}
-                </dd>
-              </>
-            )}
-            <dt>Processing time</dt>
-            <dd>{diagnostics.processingTime ?? diagnostics.processingTimeMs} ms</dd>
-            <dt>Result</dt>
-            <dd>{diagnostics.reason}</dd>
-          </dl>
-        </div>
-      )}
-
-      {error && (
-        <p role="alert" style={{ marginTop: 12, fontSize: 14, color: '#f87171' }}>
-          {error}
-        </p>
-      )}
-
-      <p style={{ marginTop: 12, fontSize: 12, opacity: 0.6 }}>
-        Status: {status}
-      </p>
-    </section>
+    <ToolPageLayout
+      title="Compress PDF"
+      description="Reduce the file size of your PDF while maintaining quality. Processing runs entirely in your browser."
+      onBack={onBack}
+      accept="application/pdf,.pdf"
+      file={file}
+      onFileSelect={handleFileSelect}
+      onFileClear={handleFileClear}
+      uploadLabel="Drop PDF here"
+      uploadHint="or click to browse"
+      uploadAcceptLabel="PDF files only"
+      options={optionsSlot}
+      actionLabel="Compress PDF"
+      actionLoadingLabel="Compressing in worker…"
+      onAction={handleCompress}
+      actionDisabled={isLoading || !file}
+      isLoading={isLoading}
+      isSuccess={isSuccess}
+      successMessage="Compression complete — download started."
+      error={error}
+      status={status}
+      diagnostics={diagnosticsRows}
+    />
   )
 }
