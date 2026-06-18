@@ -127,7 +127,7 @@
   }
 
   body {
-    @apply min-h-dvh bg-surface-base font-sans text-body-md text-primary;
+    @apply min-h-dvh bg-surface-base font-sans text-body-md text-primary overflow-x-hidden;
   }
 
   #root {

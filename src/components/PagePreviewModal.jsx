@@ -11,7 +11,8 @@ function NavButton({ disabled, onClick, 'aria-label': ariaLabel, reverse, childr
         display: 'inline-flex',
         alignItems: 'center',
         gap: 6,
-        padding: '7px 14px',
+        padding: '10px 14px',
+        minHeight: 44,
         borderRadius: 8,
         border: '1px solid rgba(148, 163, 184, 0.18)',
         background: disabled ? 'transparent' : 'rgba(148, 163, 184, 0.08)',
@@ -188,8 +189,9 @@ export default function PagePreviewModal({ orderedPages, previewId, onClose, onN
           ) : (
             <div
               style={{
-                width: 320,
-                height: 420,
+                width: '100%',
+                maxWidth: 280,
+                aspectRatio: '3 / 4',
                 borderRadius: 4,
                 background: 'linear-gradient(180deg, #e5e7eb 0%, #f8fafc 45%, #e5e7eb 100%)',
                 display: 'flex',

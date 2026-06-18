@@ -12,7 +12,7 @@ const POPULAR_TOOL_IDS = [
   'rearrange-test',
 ]
 
-/* ── Why PDF Studio feature data ──────────────────────────────────────────── */
+/* ── Why HeyPDF feature data ──────────────────────────────────────────── */
 const FEATURES = [
   {
     id: 'client-side',
@@ -196,7 +196,7 @@ export default function HomePage({
 
                 <h1
                   id="hero-headline"
-                  className="text-display-md text-primary sm:text-display-lg"
+                  className="text-display-sm text-primary sm:text-display-md lg:text-display-lg"
                 >
                   Every PDF tool you need.{' '}
                   <span className="text-accent">Right in your browser.</span>
@@ -301,7 +301,7 @@ export default function HomePage({
               id="all-tools-heading"
               className="text-display-sm text-primary"
             >
-              Everything in PDF Studio
+              Everything in HeyPDF
             </h2>
             <p className="mt-1.5 text-body-lg text-secondary">
               Pick a tool and get started — no sign-up, no account, no upload.
@@ -322,14 +322,14 @@ export default function HomePage({
         </div>
       </section>
 
-      {/* ── Section 4 · Why PDF Studio ───────────────────────────────────── */}
+      {/* ── Section 4 · Why HeyPDF ───────────────────────────────────── */}
       <section
         aria-labelledby="why-heading"
         className="mx-auto w-full max-w-content-max"
       >
         <div className="mb-6">
           <p className="text-overline font-semibold uppercase tracking-widest text-accent mb-1">
-            Why PDF Studio
+            Why HeyPDF
           </p>
           <h2
             id="why-heading"

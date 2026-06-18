@@ -12,7 +12,7 @@ export default function Footer() {
             All PDF processing happens locally in your browser. No uploads. No storage.
           </p>
           <p className="text-caption text-tertiary">
-            &copy; {year} PDF Studio
+            &copy; {year} HeyPDF
           </p>
         </div>
       </div>

@@ -387,7 +387,7 @@ export default function DeletePagesPage({ onBack }) {
     >
       {/* Controls panel */}
       <div className="mb-6 mt-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border-subtle bg-surface-raised p-5">
-        <div className="flex min-w-[240px] flex-1 flex-col gap-1.5">
+        <div className="flex min-w-0 w-full flex-col gap-1.5 sm:flex-1 sm:min-w-[200px]">
           <span className="text-overline font-semibold uppercase tracking-wider text-accent">
             Choose PDF File
           </span>
@@ -422,8 +422,8 @@ export default function DeletePagesPage({ onBack }) {
       {/* File info */}
       {file && (
         <div className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-border-subtle bg-surface-base p-4">
-          <div>
-            <p className="text-body-sm font-semibold text-primary">{file.name}</p>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-body-sm font-semibold text-primary">{file.name}</p>
             <p className="mt-1 text-caption text-secondary">
               Size: {formatBytes(file.size)}
             </p>
@@ -473,9 +473,9 @@ export default function DeletePagesPage({ onBack }) {
 
       {/* Sticky Bottom Actions Bar */}
       {file && pages.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between border-t border-border bg-surface-base/90 px-6 py-4 shadow-[0_-10px_25px_rgba(0,0,0,0.05)] backdrop-blur-md">
+        <div className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between border-t border-border bg-surface-base/90 px-4 py-4 shadow-[0_-10px_25px_rgba(0,0,0,0.05)] backdrop-blur-md sm:px-6">
           <div className="mx-auto flex w-full max-w-[1120px] flex-col items-center justify-between gap-4 sm:flex-row">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-body-sm font-medium text-primary">
                 {markedCount > 0 ? (
                   <>

@@ -3,6 +3,7 @@ import { getToolsByCategory } from '../../constants/tools.js'
 import { useMediaQuery } from '../../hooks/useMediaQuery.js'
 import { cn } from '../../utils/cn.js'
 import LockIcon from '../icons/LockIcon.jsx'
+import logoImg from '../../assets/logo.png'
 
 function ChevronIcon({ className, open }) {
   return (
@@ -92,18 +93,9 @@ export default function Navbar({ currentPage = 'home', onNavigate }) {
             type="button"
             id="nav-logo"
             onClick={() => navigate('home')}
-            className="flex items-center gap-2 group"
+            className="flex items-center group overflow-hidden"
           >
-            {/* PDF icon mark */}
-            <div className="flex size-8 items-center justify-center rounded-lg bg-accent text-white shadow-sm">
-              <svg viewBox="0 0 20 20" fill="currentColor" className="size-4" aria-hidden="true">
-                <path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" />
-                <path d="M8 10.5a.5.5 0 01.5-.5h3a.5.5 0 010 1h-3a.5.5 0 01-.5-.5zm0 2a.5.5 0 01.5-.5h3a.5.5 0 010 1h-3a.5.5 0 01-.5-.5z" />
-              </svg>
-            </div>
-            <span className="text-heading-md font-bold tracking-tight text-primary transition-colors duration-fast group-hover:text-accent">
-              PDF Studio
-            </span>
+            <img src={logoImg} alt="HeyPDF Logo" className="h-10 sm:h-12 w-auto object-contain" />
           </button>
         </div>
 

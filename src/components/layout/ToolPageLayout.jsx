@@ -280,7 +280,7 @@ export default function ToolPageLayout({
           {displayError && <ErrorBanner message={displayError} />}
 
           {/* Status footer */}
-          <div className="flex items-center justify-between border-t border-border-subtle pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-y-2 border-t border-border-subtle pt-4">
             <span className="flex items-center gap-1.5 text-caption text-tertiary">
               <LockIcon className="size-3 text-success" aria-hidden="true" />
               Processed locally · no upload

@@ -512,7 +512,7 @@ export default function RearrangeTestPage({ onBack }) {
     >
       {/* Controls panel */}
       <div className="mb-6 mt-6 flex flex-wrap items-center gap-4 rounded-xl border border-border-subtle bg-surface-raised p-5">
-        <div className="flex min-w-[240px] flex-1 flex-col gap-1.5">
+        <div className="flex min-w-0 w-full flex-col gap-1.5 sm:flex-1 sm:min-w-[200px]">
           <span className="text-overline font-semibold uppercase tracking-wider text-accent">
             Choose PDF File
           </span>
@@ -524,7 +524,7 @@ export default function RearrangeTestPage({ onBack }) {
           />
         </div>
 
-        <div className="mt-auto flex items-center gap-3">
+        <div className="flex w-full items-center gap-3 sm:w-auto sm:mt-auto">
           <Button
             variant="secondary"
             onClick={handleResetOrder}
@@ -546,8 +546,8 @@ export default function RearrangeTestPage({ onBack }) {
       {/* File info */}
       {file && (
         <div className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-border-subtle bg-surface-base p-4">
-          <div>
-            <p className="text-body-sm font-semibold text-primary">{file.name}</p>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-body-sm font-semibold text-primary">{file.name}</p>
             <p className="mt-1 text-caption text-secondary">
               Size: {formatBytes(file.size)}
             </p>
