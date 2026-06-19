@@ -115,7 +115,10 @@ function PageCard({
 
   function handleThumbnailClick(e) {
     e.stopPropagation()
-    if (!page.thumbnailUrl) return
+    if (!page.thumbnailUrl) {
+      handleArticleClick()
+      return
+    }
     if (onOpenPreview) onOpenPreview(page.id)
   }
 
@@ -145,9 +148,9 @@ function PageCard({
           'relative grid min-h-[200px] place-items-center overflow-hidden bg-surface-raised',
           isSelected ? 'rounded-t-[7px]' : 'rounded-[7px]',
         )}
-        style={{ cursor: page.thumbnailUrl && !isOverlay ? 'zoom-in' : undefined }}
+        style={{ cursor: !isOverlay ? (page.thumbnailUrl ? 'zoom-in' : 'pointer') : undefined }}
         onClick={handleThumbnailClick}
-        title={page.thumbnailUrl ? 'Click to preview' : undefined}
+        title={page.thumbnailUrl ? 'Click to preview' : 'Click to select'}
       >
         {page.thumbnailUrl ? (
           <img
@@ -156,8 +159,19 @@ function PageCard({
             draggable="false"
             className="block w-full h-full object-contain select-none"
           />
+        ) : page.hasFailedThumbnail ? (
+          <div className="flex flex-col items-center justify-center p-4 text-center select-none">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--color-tertiary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mb-2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
+            <span className="text-body-md font-bold text-secondary">Page {position}</span>
+            <span className="mt-1 text-[10px] text-tertiary">No preview available</span>
+          </div>
         ) : (
-          <div className="w-[72%] h-[78%] rounded bg-gradient-to-b from-surface-muted to-surface-base" />
+          <div className="flex flex-col items-center justify-center p-4 text-center select-none animate-pulse w-full h-full">
+            <div className="h-[140px] w-[100px] rounded bg-gradient-to-b from-surface-muted to-surface-base" />
+          </div>
         )}
 
         {/* Page number badge */}
@@ -304,15 +318,20 @@ export default function RearrangeTestPage({ onBack }) {
       setThumbnailError(null)
 
       try {
+        console.log('[RearrangePages] Starting thumbnail generation. Importing pdfjs-dist...')
         const pdfjs = await import('pdfjs-dist')
+        console.log('[RearrangePages] Configuring workerSrc...')
         pdfjs.GlobalWorkerOptions.workerSrc = new URL(
           'pdfjs-dist/build/pdf.worker.min.mjs',
           import.meta.url,
         ).toString()
 
+        console.log('[RearrangePages] Reading file arrayBuffer...')
         const arrayBuffer = await file.arrayBuffer()
+        console.log('[RearrangePages] Calling pdfjs.getDocument...')
         loadingTask = pdfjs.getDocument({ data: new Uint8Array(arrayBuffer) })
         pdf = await loadingTask.promise
+        console.log(`[RearrangePages] PDF loaded successfully. Total pages: ${pdf.numPages}`)
 
         if (cancelled) return
 
@@ -320,49 +339,91 @@ export default function RearrangeTestPage({ onBack }) {
           id: makePageId(index),
           originalIndex: index,
           thumbnailUrl: null,
+          hasFailedThumbnail: false,
         }))
         setPages(initialPages)
         setPageOrder(initialPages.map((page) => page.id))
 
+        const isMobile = typeof window !== 'undefined' && (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 768)
+        const targetWidth = isMobile ? 100 : THUMBNAIL_WIDTH
+        console.log(`[RearrangePages] Device mode - Mobile: ${isMobile}, Render Width: ${targetWidth}px`)
+
         for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
           if (cancelled) return
 
-          const page = await pdf.getPage(pageNumber)
-          const baseViewport = page.getViewport({ scale: 1 })
-          const scale = THUMBNAIL_WIDTH / baseViewport.width
-          const viewport = page.getViewport({ scale })
-          const canvas = document.createElement('canvas')
-          canvas.width = Math.ceil(viewport.width)
-          canvas.height = Math.ceil(viewport.height)
-          const context = canvas.getContext('2d')
+          try {
+            console.log(`[RearrangePages] Rendering page ${pageNumber}/${pdf.numPages}...`)
+            const page = await pdf.getPage(pageNumber)
+            const baseViewport = page.getViewport({ scale: 1 })
+            const scale = targetWidth / baseViewport.width
+            const viewport = page.getViewport({ scale })
+            const canvas = document.createElement('canvas')
+            canvas.width = Math.ceil(viewport.width)
+            canvas.height = Math.ceil(viewport.height)
+            const context = canvas.getContext('2d')
 
-          if (!context) throw new Error(`Could not render sheet ${pageNumber}.`)
+            if (!context) throw new Error(`Could not get 2d context for page ${pageNumber}.`)
 
-          await page.render({ canvasContext: context, viewport }).promise
-          const blob = await canvasToBlob(canvas)
-          const thumbnailUrl = URL.createObjectURL(blob)
-          objectUrls.push(thumbnailUrl)
+            await page.render({ canvasContext: context, viewport }).promise
+            const blob = await canvasToBlob(canvas)
+            const thumbnailUrl = URL.createObjectURL(blob)
+            objectUrls.push(thumbnailUrl)
 
-          if (cancelled) {
-            URL.revokeObjectURL(thumbnailUrl)
-            return
+            if (cancelled) {
+              URL.revokeObjectURL(thumbnailUrl)
+              return
+            }
+
+            setPages((currentPages) =>
+              currentPages.map((currentPage) =>
+                currentPage.originalIndex === pageNumber - 1
+                  ? { ...currentPage, thumbnailUrl, hasFailedThumbnail: false }
+                  : currentPage,
+              ),
+            )
+            console.log(`[RearrangePages] Page ${pageNumber} thumbnail generated successfully.`)
+          } catch (pageErr) {
+            console.error(`[RearrangePages] Error rendering page ${pageNumber} thumbnail:`, pageErr)
+            setPages((currentPages) =>
+              currentPages.map((currentPage) =>
+                currentPage.originalIndex === pageNumber - 1
+                  ? { ...currentPage, hasFailedThumbnail: true }
+                  : currentPage,
+              ),
+            )
           }
-
-          setPages((currentPages) =>
-            currentPages.map((currentPage) =>
-              currentPage.originalIndex === pageNumber - 1
-                ? { ...currentPage, thumbnailUrl }
-                : currentPage,
-            ),
-          )
         }
 
         setThumbnailStatus('ready')
       } catch (err) {
         if (!cancelled) {
-          const message = err instanceof Error ? err.message : String(err)
-          setThumbnailError(`Could not prepare thumbnails: ${message}`)
-          setThumbnailStatus('error')
+          console.error(`[RearrangePages] Outer thumbnail generation failed:`, err)
+          
+          // Attempt fallback loading using pdf-lib to get the page count
+          try {
+            console.log('[RearrangePages] Attempting fallback page count loading using pdf-lib...')
+            const { PDFDocument } = await import('pdf-lib')
+            const arrayBuffer = await file.arrayBuffer()
+            const pdfDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true })
+            const numPages = pdfDoc.getPageCount()
+            console.log(`[RearrangePages] Fallback loaded successfully. Page count: ${numPages}`)
+            
+            const fallbackPages = Array.from({ length: numPages }, (_item, index) => ({
+              id: makePageId(index),
+              originalIndex: index,
+              thumbnailUrl: null,
+              hasFailedThumbnail: true,
+            }))
+            setPages(fallbackPages)
+            setPageOrder(fallbackPages.map((page) => page.id))
+            setThumbnailStatus('ready-fallback')
+            setThumbnailError(`Could not load thumbnails on this device: ${err instanceof Error ? err.message : String(err)}. Standard grid mode activated.`)
+          } catch (fallbackErr) {
+            console.error(`[RearrangePages] Fallback loading failed:`, fallbackErr)
+            const message = err instanceof Error ? err.message : String(err)
+            setThumbnailError(`Could not prepare pages: ${message}`)
+            setThumbnailStatus('error')
+          }
         }
       }
     }
@@ -487,7 +548,7 @@ export default function RearrangeTestPage({ onBack }) {
     }
   }
 
-  const validationError = validationMessage || thumbnailError
+  const validationError = validationMessage || (thumbnailStatus === 'error' ? thumbnailError : null)
 
   const diagnosticsRows =
     isSuccess && diagnostics
@@ -649,6 +710,18 @@ export default function RearrangeTestPage({ onBack }) {
             </div>
           </div>
           <DiagnosticsPanel rows={diagnosticsRows} />
+        </div>
+      )}
+
+      {/* Warning Fallback Notice */}
+      {thumbnailStatus === 'ready-fallback' && thumbnailError && (
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-warning/20 bg-warning-muted p-4">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-warning)" strokeWidth="2.5" className="mt-0.5 shrink-0">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            <line x1="12" y1="9" x2="12" y2="13" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+          <p className="text-body-sm text-primary">{thumbnailError}</p>
         </div>
       )}
 
