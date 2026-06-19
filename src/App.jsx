@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useState, useEffect } from 'react'
 import AppLayout from './components/layout/AppLayout'
 
 const HomePage = lazy(() => import('./pages/HomePage'))
@@ -21,6 +21,32 @@ function PageFallback() {
 
 export default function App() {
   const [page, setPage] = useState('home')
+
+  useEffect(() => {
+    const pageTitles = {
+      home: 'HeyPDF - Free Client-Side PDF Tools',
+      'merge-test': 'Merge PDF | HeyPDF',
+      'image-to-pdf-test': 'Image to PDF | HeyPDF',
+      'notes-cleaner-test': 'Clean PDF Notes | HeyPDF',
+      'compress-test': 'Compress PDF | HeyPDF',
+      'split-test': 'Split PDF | HeyPDF',
+      'rotate-test': 'Rotate PDF | HeyPDF',
+      'rearrange-test': 'Rearrange PDF Pages | HeyPDF',
+      'delete-pages-test': 'Delete PDF Pages | HeyPDF',
+    }
+    const title = pageTitles[page] || 'HeyPDF'
+    const path = page === 'home' ? '/' : `/${page}`
+
+    document.title = title
+
+    if (typeof window.gtag === 'function') {
+      window.gtag('event', 'page_view', {
+        page_path: path,
+        page_title: title,
+        page_location: window.location.href,
+      })
+    }
+  }, [page])
 
   return (
     <AppLayout currentPage={page} onNavigate={setPage}>
